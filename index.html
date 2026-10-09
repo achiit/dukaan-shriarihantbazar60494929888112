@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="hi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ग्राहक बही</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--tx:#1d1d1b;--mu:#6b6b66;--ac:#1f7a4d;--bd:#e2dfd6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#222220;--tx:#f0eee8;--mu:#a09e96;--ac:#3fb67a;--bd:#38362f}}
+:root[data-theme="dark"]{--bg:#161614;--card:#222220;--tx:#f0eee8;--mu:#a09e96;--ac:#3fb67a;--bd:#38362f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,sans-serif;padding:12px;max-width:640px;margin:auto}
+h1{font-size:20px;margin:4px 0 10px}.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mu);margin:10px 0 4px}
+input,textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+.row{display:flex;gap:8px;flex-wrap:wrap}.chip{flex:1;min-width:70px;padding:11px 6px;text-align:center;border:1px solid var(--bd);border-radius:10px;cursor:pointer;background:var(--bg);font-size:14px}
+.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+button.main{width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;background:var(--ac);color:#fff;font:600 17px inherit;cursor:pointer}
+button.sec{padding:10px 14px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+.tabs{display:flex;gap:6px;margin-bottom:10px}.tabs .chip{font-weight:600}
+.msg{font-size:14px;margin-top:8px;min-height:18px}.err{color:#c0392b}.ok{color:var(--ac)}
+.vh{display:flex;justify-content:space-between;font-weight:700;margin:14px 0 6px}.it{padding:9px 0;border-top:1px solid var(--bd);font-size:15px}
+.it small{color:var(--mu);display:block}.note{font-size:12px;color:var(--mu);margin-top:8px}
+</style></head><body>
+<h1>📒 ग्राहक बही</h1>
+<div class="tabs"><div class="chip on" id="t1" onclick="tab(1)">नई एंट्री</div><div class="chip" id="t2" onclick="tab(2)">लिस्ट / Excel</div></div>
+
+<div id="p1" class="card">
+ <label>ग्राहक का नाम *</label><input id="nm" autocomplete="off">
+ <label>गाँव / पता *</label><input id="vl" list="vlist" autocomplete="off"><datalist id="vlist"></datalist>
+ <label>मोबाइल नंबर *</label><input id="ph" type="tel" inputmode="numeric" maxlength="10">
+ <label>ग्राहक की रेटिंग</label>
+ <div class="row" id="rt"></div>
+ <label>लेन-देन का तरीका</label>
+ <div class="row" id="tp"></div>
+ <label>नोट / डिटेल (वैकल्पिक)</label><textarea id="nt" rows="2"></textarea>
+ <button class="main" onclick="save()">✔ सेव करें</button>
+ <div class="msg" id="msg"></div>
+ <div class="note" id="stat"></div>
+</div>
+
+<div id="p2" style="display:none">
+ <div class="card"><b>📂 Excel फाइलें कहाँ सेव हों?</b>
+  <div class="row" style="margin-top:8px"><button class="sec" style="flex:1" onclick="pickDir()">📁 फ़ोन/कंप्यूटर का फ़ोल्डर चुनें</button><button class="sec" style="flex:1" onclick="shareAll()">☁ शेयर करके Drive में भेजें</button><button class="sec" style="flex:1 0 100%;background:var(--ac);color:#fff" onclick="gConnect()">🔗 Google Drive जोड़ें (अकाउंट चुनें)</button><div class="note" id="gdst" style="flex:1 0 100%">Drive जुड़ा नहीं है</div></div>
+  <div class="note" id="dirst">फ़ोल्डर नहीं चुना (फाइलें सीधे Downloads में जाएँगी)</div>
+  <div class="note">फ़ोल्डर चुनने पर हर नई एंट्री के साथ सारी Excel फाइलें (हर गाँव की अलग + कम्बाइंड) अपने-आप वहीं अपडेट होती रहेंगी।</div></div>
+ <div class="card">
+  <input id="q" placeholder="नाम, गाँव या नंबर खोजें" oninput="render()">
+  <div class="row" style="margin-top:10px"><button class="sec" style="flex:1" onclick="xl()">⬇ Excel डाउनलोड (सभी गाँव + कम्बाइंड)</button></div>
+  <div class="row" style="margin-top:8px"><button class="sec" style="flex:1" onclick="bk()">💾 बैकअप</button><button class="sec" style="flex:1" onclick="document.getElementById('imf').click()">📥 दूसरे फ़ोन का बैकअप जोड़ें</button><input type="file" id="imf" accept=".json" style="display:none" onchange="im(this.files[0])"></div><div class="note">Excel में हर गाँव की अलग शीट बनती है और एक "सभी ग्राहक" शीट भी।</div>
+  <div id="cnt" class="note"></div>
+ </div>
+ <div class="card"><label>WhatsApp मैसेज (हर ग्राहक के 💬 पर दबाने से यही भेजेगा)</label><textarea id="wm" oninput="render()" rows="3" placeholder="जैसे: नमस्ते, हमारी दुकान पर नया माल आया है..."></textarea></div>
+ <div id="sq" class="card" style="display:none"></div>
+ <div id="list"></div>
+ <button class="sec" style="width:100%;margin:10px 0 30px;color:#c0392b" onclick="clr()">🗑 सारा डेटा हटाएँ</button>
+</div>
+
+<script>
+const RT=["⭐ बेस्ट","👍 बेटर","🙂 ठीक","⚠ कमज़ोर"],TP=["💵 नकद","📝 उधार","🔁 दोनों"];
+let rating=RT[1],typ=TP[0],rows=[],db=null,local=[];
+function chips(id,arr,get,set){const el=document.getElementById(id);el.innerHTML="";arr.forEach(v=>{const d=document.createElement("div");d.className="chip"+(get()===v?" on":"");d.textContent=v;d.onclick=()=>{set(v);chips(id,arr,get,set)};el.appendChild(d)})}
+chips("rt",RT,()=>rating,v=>rating=v);chips("tp",TP,()=>typ,v=>typ=v);
+function tab(n){p1.style.display=n==1?"":"none";p2.style.display=n==2?"":"none";t1.className="chip"+(n==1?" on":"");t2.className="chip"+(n==2?" on":"");if(n==2)render()}
+const key=s=>s.trim().replace(/\s+/g," ").toLowerCase();
+function setMsg(t,c){msg.textContent=t;msg.className="msg "+c}
+async function save(){
+ const r={name:nm.value.trim(),village:vl.value.trim().replace(/\s+/g," "),phone:ph.value.replace(/\D/g,""),rating,type:typ,note:nt.value.trim(),ts:Date.now()};
+ if(!r.name||!r.village)return setMsg("नाम और गाँव ज़रूरी है","err");
+ if(r.phone.length!==10)return setMsg("मोबाइल नंबर 10 अंकों का होना चाहिए","err");
+ if(rows.some(x=>x.phone===r.phone&&key(x.name)===key(r.name)))return setMsg("यह ग्राहक पहले से दर्ज है","err");
+ try{
+  r.id="c"+r.ts+Math.random().toString(36).slice(2,6);rows.push(r);store();upd();autoSave();gSync()
+  nm.value=ph.value=nt.value="";setMsg("सेव हो गया ✔","ok");nm.focus();
+ }catch(e){setMsg("सेव नहीं हुआ, दोबारा कोशिश करें","err")}
+}
+function groups(){const g={};rows.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{const k=key(r.village);(g[k]=g[k]||{name:r.village,items:[]}).items.push(r)});return Object.values(g).sort((a,b)=>a.name.localeCompare(b.name,"hi"))}
+function upd(){vlist.innerHTML=groups().map(g=>`<option value="${g.name.replace(/"/g,"")}">`).join("");stat.textContent="कुल ग्राहक: "+rows.length}
+function render(){
+ const q=key(document.getElementById("q").value||"");let h="",n=0;
+ groups().forEach((g,gi)=>{const it=g.items.map((r,i)=>({r,i:i+1})).filter(x=>!q||key(x.r.name+" "+x.r.village+" "+x.r.phone).includes(q));if(!it.length)return;n+=it.length;
+  h+=`<div class="vh"><span></span></div>`;const d=document.createElement("div");
+  h+=`<div class="card"><div class="vh" style="margin-top:0"><span></span><span></span></div></div>`.slice(0,0);
+  h+=`<div class="card"><div class="vh" style="margin-top:0"><span>${esc(g.name)} (${g.items.length})</span></div><div class="row" style="margin-bottom:6px"><button class="sec" style="flex:1" onclick="xlv(${gi})">⬇ Excel</button><button class="sec" style="flex:1" onclick="vcf(${gi})">📇 Contacts</button><button class="sec" style="flex:1" onclick="sq0(${gi})">📤 सबको भेजें</button></div>`+it.map(x=>`<div class="it"><b>${x.i}. ${esc(x.r.name)}</b> · ${esc(x.r.phone)} <a href="${wl(x.r.phone)}" target="_blank" rel="noopener" style="text-decoration:none">💬</a><small>${x.r.rating} · ${x.r.type}${x.r.note?" · "+esc(x.r.note):""}</small></div>`).join("")+`</div>`});
+ list.innerHTML=h.replace(/<div class="vh"><span><\/span><\/div>/g,"");cnt.textContent="दिख रहे: "+n+" / कुल "+rows.length
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const HD=["नंबर","नाम","गाँव","मोबाइल","रेटिंग","लेन-देन","नोट"];
+function mk(items,gname){const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HD,...items.map((r,i)=>[i+1,r.name,r.village,r.phone,r.rating,r.type,r.note])]),(gname||"ग्राहक").replace(/[\\\/\?\*\[\]:]/g,"").slice(0,28)||"ग्राहक");return new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})])}
+function xlv(i){const g=groups()[i];if(g)dl(mk(g.items,g.name),g.name+".xlsx")}
+function vcf(i){const g=groups()[i];if(!g)return;dl(new Blob([g.items.map(r=>"BEGIN:VCARD\nVERSION:3.0\nFN:"+r.name+" ("+g.name+")\nTEL;TYPE=CELL:+91"+r.phone+"\nEND:VCARD").join("\n")],{type:"text/vcard"}),g.name+".vcf")}
+function wl(p){return"https://wa.me/91"+p+"?text="+encodeURIComponent(document.getElementById("wm").value||"")}
+let Q=[],qi=0;
+function sq0(i){const g=groups()[i];if(!g)return;if(!(document.getElementById("wm").value||"").trim())return alert("पहले ऊपर मैसेज लिखें");Q=g.items;qi=0;sqs()}
+function sqs(){const el=document.getElementById("sq");el.style.display="";if(qi>=Q.length){el.innerHTML="<b>✔ सबको भेज दिया ("+Q.length+")</b><br><button class='sec' onclick='sqx()'>बंद करें</button>";return}const r=Q[qi];el.innerHTML="<div class='note'>"+(qi+1)+" / "+Q.length+"</div><div style='font-size:18px;font-weight:700;margin:6px 0'>"+esc(r.name)+" · "+esc(r.phone)+"</div><a style='display:block;text-align:center;text-decoration:none;padding:14px;border-radius:12px;background:var(--ac);color:#fff;font-weight:600' href='"+wl(r.phone)+"' target='_blank' rel='noopener' onclick='setTimeout(()=>{qi++;sqs()},800)'>💬 WhatsApp खोलें</a><div class='row' style='margin-top:8px'><button class='sec' style='flex:1' onclick='qi++;sqs()'>छोड़ें ⏭</button><button class='sec' style='flex:1' onclick='sqx()'>रोकें</button></div><div class='note'>WhatsApp में Send दबाकर वापस आएँ, अगला नाम अपने-आप आ जाएगा।</div>"}
+function sqx(){document.getElementById("sq").style.display="none"}
+function clr(){if(confirm("सारी एंट्री हमेशा के लिए हट जाएँगी। पक्का?")){rows=[];store();upd();render()}}
+async function xl(){
+ if(!rows.length)return alert("अभी कोई एंट्री नहीं है");
+ const wb=XLSX.utils.book_new(),used=new Set(["सभी ग्राहक"]);
+ const all=rows.slice().sort((a,b)=>a.ts-b.ts).map((r,i)=>[i+1,r.name,r.village,r.phone,r.rating,r.type,r.note]);
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HD,...all]),"सभी ग्राहक");
+ groups().forEach(g=>{let nme=g.name.replace(/[\\\/\?\*\[\]:]/g,"").slice(0,28)||"गाँव",k=nme,c=2;while(used.has(k))k=nme.slice(0,25)+"_"+c++;used.add(k);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HD,...g.items.map((r,i)=>[i+1,r.name,r.village,r.phone,r.rating,r.type,r.note])]),k)});
+ const out=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+ dl(new Blob([out]),"ग्राहक_बही.xlsx")
+}
+function store(){try{localStorage.setItem("cb",JSON.stringify(rows))}catch(e){}}
+async function dl(blob,name){try{const d=await claude.use("downloads");if(!d)throw 0;await d.save({filename:name,data:blob})}catch(e){if(e&&e.code==="declined")return;alert("इस व्यू में डाउनलोड उपलब्ध नहीं है")}}
+function bk(){dl(new Blob([JSON.stringify(rows)],{type:"application/json"}),"backup.json")}
+function im(f){const r=new FileReader();r.onload=()=>{try{const a=JSON.parse(r.result),ids=new Set(rows.map(x=>x.id));let n=0;a.forEach(x=>{if(x.id&&!ids.has(x.id)&&!rows.some(y=>y.phone===x.phone&&key(y.name)===key(x.name))){rows.push(x);n++}});store();upd();render();alert(n+" नई एंट्री जुड़ीं")}catch(e){alert("फाइल सही नहीं है")}};r.readAsText(f)}
+try{rows=JSON.parse(localStorage.getItem("cb")||"[]")}catch(e){rows=[]}
+upd();
+
+// ---- स्टोरेज कनेक्ट ----
+let dirH=null;
+function idb(){return new Promise((ok,no)=>{const q=indexedDB.open("cbk",1);q.onupgradeneeded=()=>q.result.createObjectStore("k");q.onsuccess=()=>ok(q.result);q.onerror=no})}
+async function idbSet(v){try{const d=await idb();d.transaction("k","readwrite").objectStore("k").put(v,"dir")}catch(e){}}
+async function idbGet(){try{const d=await idb();return await new Promise(ok=>{const r=d.transaction("k").objectStore("k").get("dir");r.onsuccess=()=>ok(r.result);r.onerror=()=>ok(null)})}catch(e){return null}}
+function dirMsg(t){document.getElementById("dirst").textContent=t}
+async function pickDir(){
+ if(!window.showDirectoryPicker)return alert("इस ब्राउज़र में फ़ोल्डर चुनने की सुविधा नहीं है। 'शेयर करके Drive में भेजें' बटन या सीधा Excel डाउनलोड इस्तेमाल करें।");
+ try{dirH=await showDirectoryPicker({mode:"readwrite"});await idbSet(dirH);dirMsg("✔ फ़ोल्डर जुड़ा: "+dirH.name);autoSave()}catch(e){}
+}
+async function writeTo(name,blob){
+ if(!dirH)return false;
+ try{if(await dirH.requestPermission({mode:"readwrite"})!=="granted")return false;const f=await dirH.getFileHandle(name,{create:true});const w=await f.createWritable();await w.write(blob);await w.close();return true}catch(e){return false}
+}
+function allBlob(){const wb=XLSX.utils.book_new(),used=new Set(["सभी ग्राहक"]);
+ const all=rows.slice().sort((a,b)=>a.ts-b.ts).map((r,i)=>[i+1,r.name,r.village,r.phone,r.rating,r.type,r.note]);
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HD,...all]),"सभी ग्राहक");
+ groups().forEach(g=>{let n=g.name.replace(/[\\\/\?\*\[\]:]/g,"").slice(0,28)||"गाँव",k=n,c=2;while(used.has(k))k=n.slice(0,25)+"_"+c++;used.add(k);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([HD,...g.items.map((r,i)=>[i+1,r.name,r.village,r.phone,r.rating,r.type,r.note])]),k)});
+ return new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})]);}
+function fileList(){const f=[{name:"सभी_ग्राहक.xlsx",blob:allBlob()}];groups().forEach(g=>f.push({name:g.name.replace(/[\\\/\?\*:]/g,"")+".xlsx",blob:mk(g.items,g.name)}));return f}
+async function autoSave(){
+ if(!dirH||!rows.length)return;
+ let ok=0;for(const f of fileList()){if(await writeTo(f.name,f.blob))ok++}
+ dirMsg(ok?"✔ "+ok+" फाइलें '"+dirH.name+"' में अपडेट हुईं":"⚠ फ़ोल्डर की अनुमति दोबारा दें (📁 बटन दबाएँ)");
+}
+async function dl(blob,name){
+ if(await writeTo(name,blob))return;
+ const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);
+}
+async function xl(){if(!rows.length)return alert("अभी कोई एंट्री नहीं है");dl(allBlob(),"सभी_ग्राहक.xlsx")}
+async function shareAll(){
+ if(!rows.length)return alert("अभी कोई एंट्री नहीं है");
+ const files=fileList().map(f=>new File([f.blob],f.name,{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+ if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files,title:"ग्राहक बही"})}catch(e){}}
+ else{alert("इस ब्राउज़र में शेयर नहीं हो सकता, फाइलें डाउनलोड हो रही हैं");files.forEach(f=>dl(f,f.name))}
+}
+(async()=>{const h=await idbGet();if(h){dirH=h;dirMsg("फ़ोल्डर जुड़ा: "+h.name+" (पहली बार अनुमति माँगी जाएगी)")}})();
+
+// ---- Google Drive सीधा कनेक्शन ----
+// अपनी Google Cloud की Client ID यहाँ चिपकाएँ
+const CLIENT_ID="PASTE_YOUR_CLIENT_ID_HERE";
+let gTok=null,gFolder=null,gTimer=null;
+function gMsg(t){document.getElementById("gdst").textContent=t}
+function gConnect(){
+ if(CLIENT_ID.indexOf("PASTE")===0)return alert("पहले कोड में अपनी Google Client ID डालनी है (सेटअप स्टेप देखें)");
+ if(!window.google||!google.accounts)return alert("Google सेवा लोड नहीं हुई, नेट चेक करके दोबारा कोशिश करें");
+ const tc=google.accounts.oauth2.initTokenClient({
+  client_id:CLIENT_ID,scope:"https://www.googleapis.com/auth/drive.file",prompt:"select_account",login_hint:"shriarihantbazara@gmail.com",
+  callback:async r=>{
+   if(r.error){gMsg("⚠ कनेक्शन नहीं हुआ: "+r.error);return}
+   gTok=r.access_token;gFolder=null;
+   try{const a=await gApi("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)");gMsg("✔ जुड़ा: "+(a.user&&a.user.emailAddress||"Google Drive"))}catch(e){gMsg("✔ Drive जुड़ा")}
+   gSync(true);
+  }});
+ tc.requestAccessToken({prompt:"select_account",login_hint:"shriarihantbazara@gmail.com"});
+}
+async function gApi(url,opt){
+ const r=await fetch(url,Object.assign({headers:{Authorization:"Bearer "+gTok}},opt||{}));
+ if(r.status===401){gTok=null;gMsg("⚠ Drive का सेशन ख़त्म, दोबारा 🔗 बटन दबाएँ");throw new Error("auth")}
+ if(!r.ok)throw new Error("api "+r.status);
+ return r.json();
+}
+const gq=n=>n.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+async function gEnsureFolder(){
+ if(gFolder)return gFolder;
+ const q="name='ग्राहक बही' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+ const f=await gApi("https://www.googleapis.com/drive/v3/files?fields=files(id)&q="+encodeURIComponent(q));
+ if(f.files&&f.files.length)gFolder=f.files[0].id;
+ else{const c=await gApi("https://www.googleapis.com/drive/v3/files?fields=id",{method:"POST",headers:{Authorization:"Bearer "+gTok,"Content-Type":"application/json"},body:JSON.stringify({name:"ग्राहक बही",mimeType:"application/vnd.google-apps.folder"})});gFolder=c.id}
+ return gFolder;
+}
+async function gUpload(name,blob){
+ const fid=await gEnsureFolder();
+ const q="name='"+gq(name)+"' and '"+fid+"' in parents and trashed=false";
+ const f=await gApi("https://www.googleapis.com/drive/v3/files?fields=files(id)&q="+encodeURIComponent(q));
+ const fd=new FormData();
+ const mt="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+ if(f.files&&f.files.length){
+  fd.append("metadata",new Blob([JSON.stringify({})],{type:"application/json"}));fd.append("file",new Blob([blob],{type:mt}));
+  await gApi("https://www.googleapis.com/upload/drive/v3/files/"+f.files[0].id+"?uploadType=multipart",{method:"PATCH",body:fd});
+ }else{
+  fd.append("metadata",new Blob([JSON.stringify({name:name,parents:[fid]})],{type:"application/json"}));fd.append("file",new Blob([blob],{type:mt}));
+  await gApi("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{method:"POST",body:fd});
+ }
+}
+function gSync(now){
+ if(!gTok||!rows.length)return;
+ clearTimeout(gTimer);
+ gTimer=setTimeout(async()=>{
+  try{gMsg("⏳ Drive में सेव हो रहा है…");let n=0;for(const f of fileList()){await gUpload(f.name,f.blob);n++}gMsg("✔ Drive के 'ग्राहक बही' फ़ोल्डर में "+n+" फाइलें अपडेट हुईं")}
+  catch(e){if(gTok)gMsg("⚠ Drive में सेव नहीं हुआ, नेट चेक करें")}
+ },now?100:3000);
+}
+</script></body></html>
